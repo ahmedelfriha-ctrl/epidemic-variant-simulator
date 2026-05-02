@@ -35,8 +35,13 @@ int is_epidemic_active(Graph* graph);
 
 /* Runs the simulation to completion (no I nodes remain).
  * Returns the total number of time steps elapsed. */
-int Run_simulation(Graph* graph, tree* virus_tree, double teta);
+int Run_simulation(Graph* graph, tree* virus_tree, double teta,char* filename_individuals, char* filename_variants,char* fileparameters);
 
+int* count_individuals(Graph* graph);
+
+int get_current_infected(tree* virus_tree, int variant_id);
+
+int get_total_infected(tree* virus_tree , int variant_id);
 /* Generates a mutated parameter value from a parent value x ∈ [0,1].
  * Applies a bounded random walk with max step ±0.1, clamped to [0,1]. */
 double generate_new(double x);

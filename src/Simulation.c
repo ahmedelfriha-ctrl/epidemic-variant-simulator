@@ -141,16 +141,108 @@ int is_epidemic_active(Graph* graph) {
     return 0;
 }
 
+int* count_individuals(Graph* graph)
+{
+    int* SIR=calloc(3,sizeof(int));
+    if(SIR==NULL)
+    {
+        return NULL;
+    }
+
+    for(int i=0 ; i<graph->n ; i++)
+    {
+        if(graph->states[i]==I)
+        {
+            SIR[I]++;
+        }
+        else
+        {
+            if(graph->states[i]==S)
+            {
+                SIR[S]++;
+            }
+            else
+            {
+                SIR[R]++;
+            }
+        }
+    }
+    return SIR;
+}
+
+int get_current_infected(tree* virus_tree, int variant_id)
+{
+    return virus_tree->variants[variant_id]->current_infected;
+}
+
+int get_total_infected(tree* virus_tree , int variant_id)
+{
+    return virus_tree->variants[variant_id]->total_infected;
+}
 
 /* ── Main loop ────────────────────────────────────────────────────────────── */
 
-int Run_simulation(Graph* graph, tree* virus_tree, double teta) {
-    int T_final = 0;
+int Run_simulation(Graph* graph, tree* virus_tree, double teta,char* filename_individuals, char* filename_variants, char* filename_parameters) {
+    int T = 0;
 
-    while (is_epidemic_active(graph)) {
-        update_state(graph, virus_tree, teta);
-        T_final++;
+    FILE* file_indiv=fopen(filename_individuals,"w");
+    FILE* file_variant=fopen(filename_variants,"w");
+
+    if(file_indiv==NULL)
+    {
+        printf("unable to open %s ",filename_individuals);
+        return -1;
+    }
+    
+    if(file_variant==NULL)
+    {
+        printf("unable to open %s ",filename_variants);
+        return -1;
     }
 
-    return T_final;
+    fprintf(file_indiv,"Time,susceptible,Infected,Recovered\n");
+
+    fprintf(file_variant,"Time,variant_id,current_infected,Total_infected\n");
+
+    int* SIR=count_individuals(graph);
+    if(SIR==NULL)
+    {
+        printf("error while loading SIR");
+        return -1;
+    }
+
+    fprintf(file_indiv,"%d,%d,%d,%d\n",T,SIR[S],SIR[I],SIR[R]);
+    free(SIR);
+    fprintf(file_variant,"%d,0,%d,%d\n",T,get_current_infected(virus_tree,0),get_total_infected(virus_tree,0));
+
+    while (is_epidemic_active(graph)) {
+
+        
+        update_state(graph, virus_tree, teta);
+        T++;
+        SIR=count_individuals(graph);
+        if(SIR==NULL)
+        {
+            printf("error while loading SIR");
+            return -1;
+        }
+        fprintf(file_indiv,"%d,%d,%d,%d\n",T,SIR[S],SIR[I],SIR[R]);
+        free(SIR);
+        for(int i=0 ; i<virus_tree->current_size; i++)
+        {
+            fprintf(file_variant,"%d,%d,%d,%d\n",T,i,get_current_infected(virus_tree,i),get_total_infected(virus_tree,i));
+        }
+    }
+    fclose(file_indiv);
+    fclose(file_variant);
+
+    FILE* file_parameters=fopen(filename_parameters,"w");
+    fprintf(file_parameters,"variant,beta,gamma\n");
+    for (int i=0 ; i<virus_tree->current_size;i++)
+    {
+        fprintf(file_parameters,"%d,%lf,%lf \n",i,virus_tree->variants[i]->beta,virus_tree->variants[i]->gamma);
+    }
+    fclose(file_parameters);
+
+    return T;
 }
