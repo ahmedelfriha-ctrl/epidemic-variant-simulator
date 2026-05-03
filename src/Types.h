@@ -1,9 +1,10 @@
 /*
+ * =============================================================================
  * Types.h
- * -------
+ * =============================================================================
+ *
  * Central type definitions for the network-based SIR epidemic simulation.
- * All shared structs, enums, and utilities live here to avoid circular
- * dependencies between Graph.h and Simulation.h.
+ * Isolates shared structs and enums to prevent circular dependencies.
  */
 
 #ifndef TYPES_H
@@ -12,43 +13,35 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-/* ── Epidemiological States ─────────────────────────────────────────────────
- * S : Susceptible  — healthy, can be infected by an infectious neighbor.
- * I : Infectious   — currently infected and capable of transmitting.
- * R : Recovered    — permanently immune (also used to model vaccinated nodes).
+/*
+ * Epidemiological states for the SIR model.
+ * S: Susceptible (healthy, can be infected).
+ * I: Infectious (currently infected, can transmit).
+ * R: Recovered (permanently immune or vaccinated).
  */
 typedef enum { S, I, R } State;
 
-
-/* ── Virus Variant ──────────────────────────────────────────────────────────
- * Represents a single viral strain in the mutation tree.
- *
- * variant_id       : unique identifier (also its index in tree.variants[]).
- * parent_id        : id of the strain this one mutated from; -1 for the root.
- * current_infected : number of individuals *currently* carrying this variant.
- * total_infected   : cumulative count since the variant first appeared.
- * beta             : transmission probability per contact per time step.
- * gamma            : recovery probability per time step.
+/*
+ * A single viral strain (node in the mutation lineage).
+ * * variant_id     : Unique ID (and index in the tree array).
+ * parent_id      : ID of the parent strain (-1 for root/original).
+ * total_infected : Cumulative infections caused by this variant.
+ * beta           : Transmission probability [0.0, 1.0].
+ * gamma          : Recovery probability [0.0, 1.0].
  */
 typedef struct variant {
     int    variant_id;
     int    parent_id;
-    int    current_infected;
     int    total_infected;
     double beta;
     double gamma;
 } variant;
 
-/* ── Variant Tree ───────────────────────────────────────────────────────────
- * Flat array that stores all variants ever observed during the simulation.
- * Indexed by variant_id, so lookup is O(1).
- *
- * max_size     : capacity of the variants[] array (set to n, the population
- *                size). This is a safe upper bound because each mutation
- *                requires a transmission event, and there can be at most n
- *                simultaneous transmissions in a network of n nodes.
- * current_size : next free slot; also equals the total number of variants
- *                created so far.
+/*
+ * Flat array storing all viral variants for O(1) lookup.
+ * * max_size     : Capacity (bounded by population size n).
+ * current_size : Total number of variants created so far.
+ * variants     : Array of variant pointers.
  */
 typedef struct tree {
     int       max_size;
@@ -56,33 +49,31 @@ typedef struct tree {
     variant** variants;
 } tree;
 
-
-/* ── Adjacency-List Node ────────────────────────────────────────────────────
- * One entry in the linked-list of neighbors for a given individual.
+/*
+ * Adjacency list node representing a network edge (contact).
  */
 typedef struct neighbour {
-    int              id_neighbour;
+    int               id_neighbour;
     struct neighbour* next;
 } neighbour;
 
-/* ── Population Graph ───────────────────────────────────────────────────────
- * Undirected graph where each node is an individual and each edge is a
- * contact through which the virus can spread.
- *
- * n        : total number of individuals.
- * states   : current epidemiological state of every individual.
- * variants : variant_id currently infecting each individual; -1 if not I.
- * adj_list : adjacency list — adj_list[i] is the head of i's neighbor list.
+/*
+ * Undirected contact network representing the population.
+ * * n        : Total number of individuals.
+ * states   : Array of current epidemiological states (S/I/R).
+ * variants : Array of currently infecting variant IDs (-1 if not infected).
+ * adj_list : Array of adjacency list heads for each individual.
  */
 typedef struct Graph {
-    int        n;
-    State*     states;
-    int*       variants;
+    int         n;
+    State* states;
+    int* variants;
     neighbour** adj_list;
 } Graph;
 
-
-/* ── Utility: uniform random double in [0, 1) ───────────────────────────── */
+/*
+ * Utility: Generates a uniform random double in [0.0, 1.0].
+ */
 static inline double rand_double(void) {
     return (double)rand() / (double)RAND_MAX;
 }

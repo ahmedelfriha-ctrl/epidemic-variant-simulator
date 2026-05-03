@@ -1,11 +1,12 @@
 /*
+ * =============================================================================
  * Simulation.h
- * ------------
- * for the synchronous SIR state-update engine.
+ * =============================================================================
  *
- * The simulation follows a discrete-time, synchronous (cellular-automaton)
- * update rule: all state transitions for time step t are computed from the
- * state at t-1 and committed simultaneously, avoiding order-of-update bias.
+ * Public interface for the synchronous SIR state-update engine.
+ * Handles network-based viral transmission, mutation, and interventions.
+ *
+ * =============================================================================
  */
 
 #ifndef SIMULATION_H
@@ -13,37 +14,48 @@
 
 #include "Model.h"
 
-/* Advances the population by one time step.
- *
- * Transition rules:
- *   I → R  with probability gamma  (recovery)
- *   S → I  with probability beta   (infection by at least one I neighbor)
- *   R → R  always                  (permanent immunity)
- *
- * When S→I occurs, the new case inherits the transmitting neighbor's variant.
- * With probability teta (and provided the variant tree has capacity), the
- * virus mutates: a child variant is created with beta and gamma slightly
- * perturbed by generate_new().
- *
- * Returns  1 on success,
- *          0 if a memory allocation fails (simulation state is unchanged) or arguments are invalid. */
+/* ── Core Simulation ─────────────────────────────────────────────────────── */
+
+/*
+ * Advances the population by one discrete time step synchronously.
+ * - I -> R: Infected recover with probability gamma.
+ * - S -> I: Susceptibles are infected by I-neighbors with probability beta.
+ * - Mutation: New infections spawn a mutated strain with probability teta.
+ * * Returns 1 on success, 0 on memory allocation failure, -1 on invalid args.
+ */
 int update_state(Graph* graph, tree* virus_tree, double teta);
 
-/* Returns 1 if at least one individual is currently in state I, 0 otherwise.
- * Used as the main loop termination condition. */
+/* Returns 1 if at least one individual is currently infected (I), 0 otherwise. */
 int is_epidemic_active(Graph* graph);
 
-/* Runs the simulation to completion (no I nodes remain).
- * Returns the total number of time steps elapsed. */
-int Run_simulation(Graph* graph, tree* virus_tree, double teta,char* filename_individuals, char* filename_variants,char* fileparameters);
 
+/* ── Metrics & Utilities ─────────────────────────────────────────────────── */
+
+/*
+ * Tallies current states. Returns a heap-allocated array indexed by state: [S, I, R].
+ * Caller is responsible for calling free() on the returned pointer.
+ */
 int* count_individuals(Graph* graph);
 
-int get_current_infected(tree* virus_tree, int variant_id);
+/* Returns the cumulative number of individuals ever infected by variant_id. */
+int get_total_infected(tree* virus_tree, int variant_id);
 
-int get_total_infected(tree* virus_tree , int variant_id);
-/* Generates a mutated parameter value from a parent value x ∈ [0,1].
- * Applies a bounded random walk with max step ±0.1, clamped to [0,1]. */
+/* Mutates transmission/recovery rates by a random step in [-0.1, 0.1], clamped to [0,1]. */
 double generate_new(double x);
+
+
+/* ── Interventions & Runners ─────────────────────────────────────────────── */
+
+/* Simulates social distancing by permanently severing network edges at the given rate. */
+int apply_quarantine(Graph* graph, double rate);
+
+/* Instantly transitions Susceptible individuals to Recovered (immune) based on rate. */
+int apply_vaccination(Graph* graph, double rate);
+
+/* Runs simulation to T_MAX, applying a quarantine intervention at step T_quar. Logs to CSV. */
+int Run_simulation_quarantine_export_individuals(Graph* graph, tree* virus_tree, double teta, char* filename_individuals, int T_MAX, int T_quar, double rate);
+
+/* Runs simulation to T_MAX, applying a vaccination intervention at step T_vac. Logs to CSV. */
+int Run_simulation_vaccination_export_individuals(Graph* graph, tree* virus_tree, double teta, char* filename_individuals, int T_MAX, int T_vac, double rate);
 
 #endif
